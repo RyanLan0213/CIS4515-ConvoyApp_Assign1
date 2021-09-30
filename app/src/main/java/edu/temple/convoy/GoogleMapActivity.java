@@ -172,6 +172,8 @@ public class GoogleMapActivity extends MainActivity {
         queue.add(stringRequest);
 
     }
+
+
     private void joinconvoy(){
         dialogbuilder = new AlertDialog.Builder((this));
         final View popupview = getLayoutInflater().inflate(R.layout.pop,null);
@@ -368,9 +370,6 @@ public class GoogleMapActivity extends MainActivity {
 
     private void getCurrentlocation() {
         if(convoyid!=null){
-
-
-
         }
 
 
@@ -513,10 +512,8 @@ public class GoogleMapActivity extends MainActivity {
             }
         };
         queue.add(stringRequest);
-
-
-
     }
+    /*
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -526,6 +523,8 @@ public class GoogleMapActivity extends MainActivity {
             }
         }
     }
+
+     */
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -548,7 +547,7 @@ public class GoogleMapActivity extends MainActivity {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
 
     }
-
+/*
     private void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             client.requestLocationUpdates(mLocationRequest,
@@ -557,6 +556,8 @@ public class GoogleMapActivity extends MainActivity {
         }
 
     }
+
+ */
 
    /* @Override
     protected void onResume() {

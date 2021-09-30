@@ -31,6 +31,7 @@ public class fcm extends FirebaseMessagingService {
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
 
         super.onMessageReceived(remoteMessage);
+        Log.d("FCMInvolke","involked");
         Intent intent = new Intent("MyData");
         intent.putExtra("username", remoteMessage.getData().get("username"));
         intent.putExtra("latitude", remoteMessage.getData().get("latitude"));
