@@ -4,9 +4,13 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -14,6 +18,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -37,6 +42,9 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingService;
+import com.google.firebase.messaging.RemoteMessage;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -47,16 +55,19 @@ import java.util.Map;
 public class GoogleMapActivity extends MainActivity {
     SupportMapFragment smf;
     FusedLocationProviderClient client;
-    Button logoutbutton, createbutton, joinbutton, leavebutton;
+    Button logoutbutton, createbutton, joinbutton, leavebutton,confirmbutton;
     public String CONVOYURL = "https://kamorris.com/lab/convoy/convoy.php";
     String username;
     String sessionkey;
-    String convoyid;
+    String convoyid = "";
     String status;
     TextView convoytextview;
     public String logoutURL = "https://kamorris.com/lab/convoy/account.php";
     LocationRequest mLocationRequest;
     LocationCallback mLocationCallback;
+    private AlertDialog.Builder dialogbuilder;
+    private AlertDialog alertDialog;
+    private EditText convoyidedit;
 
 
     @Override
@@ -65,6 +76,7 @@ public class GoogleMapActivity extends MainActivity {
         setContentView(R.layout.activity_google_map);
         convoytextview = findViewById(R.id.convoytextview);
 
+
         Bundle b = new Bundle();
         b = getIntent().getExtras();
         username = b.getString("username");
@@ -72,6 +84,21 @@ public class GoogleMapActivity extends MainActivity {
         Log.d("thee key is ", sessionkey);
         smf = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.google_map);
         client = LocationServices.getFusedLocationProviderClient(this);
+        joinbutton = findViewById(R.id.joinbutton);
+        leavebutton = findViewById(R.id.leavebutton);
+
+        joinbutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                joinconvoy();
+            }
+        });
+        leavebutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                leaveconvoy();
+            }
+        });
 
         logoutbutton = findViewById(R.id.logoutbutton);
         logoutbutton.setOnClickListener(new View.OnClickListener() {
@@ -102,7 +129,112 @@ public class GoogleMapActivity extends MainActivity {
 
 
     }
+    private void leaveconvoy(){
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, CONVOYURL, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                //   Toast.makeText(GoogleMapActivity.this,"clicked",Toast.LENGTH_SHORT).show();
+                try {
+                    JSONObject jObject = new JSONObject(response);
+                    Log.d("convoy id for leaving is ",convoyid);
+                    // Log.d("Creation Status is ", response.toString());
+                    if (jObject.getString("status").equals("SUCCESS")) {
 
+
+                    } else {
+
+                    }
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.d("error:", error.toString());
+            }
+        }) {
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                Map<String, String> convoydata = new HashMap<>();
+                convoydata.put("action", "LEAVE");
+                convoydata.put("username", username);
+                convoydata.put("session_key", sessionkey);
+                convoydata.put("convoy_id", convoyid);
+
+                // logindata.put("firstname",)
+
+                return convoydata;
+            }
+        };
+        queue.add(stringRequest);
+
+    }
+    private void joinconvoy(){
+        dialogbuilder = new AlertDialog.Builder((this));
+        final View popupview = getLayoutInflater().inflate(R.layout.pop,null);
+        convoyidedit = (EditText) popupview.findViewById(R.id.popupconvoyu);
+        confirmbutton =(Button)popupview.findViewById(R.id.comfirmbutton);
+        dialogbuilder.setView(popupview);
+        alertDialog = dialogbuilder.create();
+        alertDialog.show();
+        confirmbutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(convoyidedit.getText().toString()!=null){
+                    convoyid = convoyidedit.getText().toString();
+                    alertDialog.dismiss();
+                }
+            }
+        });
+
+
+
+
+
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, CONVOYURL, new Response.Listener<String>() {
+        @Override
+        public void onResponse(String response) {
+            //   Toast.makeText(GoogleMapActivity.this,"clicked",Toast.LENGTH_SHORT).show();
+            try {
+                JSONObject jObject = new JSONObject(response);
+                 Log.d("Successfully join ", response.toString());
+                if (jObject.getString("status").equals("SUCCESS")) {
+                    FirebaseMessaging.getInstance().subscribeToTopic(convoyid);
+
+
+                } else {
+
+                }
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+        }
+    }, new Response.ErrorListener() {
+        @Override
+        public void onErrorResponse(VolleyError error) {
+            Log.d("error:", error.toString());
+        }
+    }) {
+        @Override
+        protected Map<String, String> getParams() throws AuthFailureError {
+            Map<String, String> convoydata = new HashMap<>();
+            convoydata.put("action", "JOIN");
+            convoydata.put("username", username);
+            convoydata.put("session_key", sessionkey);
+            convoydata.put("convoy_id", convoyid);
+            // logindata.put("firstname",)
+
+            return convoydata;
+        }
+    };
+        queue.add(stringRequest);
+
+    }
     private void logout() {
         StringRequest stringRequest = new StringRequest(Request.Method.POST, logoutURL, new Response.Listener<String>() {
             @Override
@@ -235,6 +367,11 @@ public class GoogleMapActivity extends MainActivity {
     }
 
     private void getCurrentlocation() {
+        if(convoyid!=null){
+
+
+
+        }
 
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -255,7 +392,9 @@ public class GoogleMapActivity extends MainActivity {
                         if (location != null) {
                             LatLng latlng = new LatLng(location.getLatitude(), location.getLongitude());
                             Log.d("latlng", latlng.toString());
+
                             MarkerOptions options = new MarkerOptions().position(latlng).title("I am here");
+
                             smf.getMapAsync(new OnMapReadyCallback() {
                                 @Override
                                 public void onMapReady(@NonNull GoogleMap googleMap) {
@@ -279,6 +418,7 @@ public class GoogleMapActivity extends MainActivity {
                             public void onMapReady(@NonNull GoogleMap googleMap) {
                                 LatLng latlng = new LatLng(location.getLatitude(), location.getLongitude());
                                 Log.d("latlng", latlng.toString());
+                                updatelocation(latlng);
                                 MarkerOptions options = new MarkerOptions().position(latlng).title("I am here");
                                 googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latlng, 17));
                                 Log.d("I", "I am invoked");
@@ -330,7 +470,53 @@ public class GoogleMapActivity extends MainActivity {
             */
 
     }
+    private void updatelocation(LatLng latlng) {
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, CONVOYURL, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                //   Toast.makeText(GoogleMapActivity.this,"clicked",Toast.LENGTH_SHORT).show();
+                try {
+                    JSONObject jObject = new JSONObject(response);
+                    Log.d("Creation Status is ", response.toString());
+                    if (jObject.getString("status").equals("SUCCESS")) {
+                        Log.d("Status of update = ",jObject.getString("status"));
 
+
+                    } else {
+
+                    }
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.d("error:", error.toString());
+            }
+        }) {
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
+                Map<String, String> convoydata = new HashMap<>();
+                convoydata.put("action", "UPDATE");
+                convoydata.put("username", username);
+                convoydata.put("session_key", sessionkey);
+                convoydata.put("convoy_id",convoyid);
+                convoydata.put("latitude",String.valueOf(latlng.latitude));
+                convoydata.put("longitude",String.valueOf(latlng.longitude));
+
+                // logindata.put("firstname",)
+
+                return convoydata;
+            }
+        };
+        queue.add(stringRequest);
+
+
+
+    }
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -340,10 +526,26 @@ public class GoogleMapActivity extends MainActivity {
             }
         }
     }
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
 
+            Log.d("Receiving FCM username",intent.getExtras().getString("username"));
+        }
+    };
     @Override
     protected void onStart() {
         super.onStart();
+        LocalBroadcastManager.getInstance(this).registerReceiver((mMessageReceiver),
+                new IntentFilter("MyData")
+        );
+
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
 
     }
 

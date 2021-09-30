@@ -33,8 +33,7 @@ public class DialogFra extends AppCompatDialogFragment {
                         }
                     });
             return builder.create();
-        }
-        else{
+        } else {
             AlertDialog.Builder builder = new AlertDialog.Builder((getActivity()));
             builder.setTitle("Do you really wanna End the Convoy?")
                     .setMessage("The Convoy id is " + Convoyid)
@@ -53,7 +52,6 @@ public class DialogFra extends AppCompatDialogFragment {
             return builder.create();
 
         }
-
-
     }
+
 }
