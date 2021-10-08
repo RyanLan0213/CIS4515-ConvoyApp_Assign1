@@ -39,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
     String key;
     String[] RegisterArray = new String[4];
     static final int check =1;
-    RequestQueue queue;
+    static RequestQueue queue;
 
 
 

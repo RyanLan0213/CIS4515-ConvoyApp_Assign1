@@ -24,9 +24,11 @@ import android.widget.Toast;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
+import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -40,6 +42,7 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -57,8 +60,9 @@ public class GoogleMapActivity extends MainActivity {
     FusedLocationProviderClient client;
     Button logoutbutton, createbutton, joinbutton, leavebutton,confirmbutton;
     public String CONVOYURL = "https://kamorris.com/lab/convoy/convoy.php";
-    String username;
-    String sessionkey;
+    public static String username;
+    public static String token;
+    static String sessionkey;
     String convoyid = "";
     String status;
     TextView convoytextview;
@@ -69,12 +73,73 @@ public class GoogleMapActivity extends MainActivity {
     private AlertDialog alertDialog;
     private EditText convoyidedit;
 
+public interface datareturn{
+     default String getusername(){
+        return username;
+    }
+     default String getsessionkey(){
+         return sessionkey;
+     }
+     default String getTOKEN(){
+         return token;
+     }
+     default RequestQueue returnqueue(){
+         return queue;
+     }
+
+}
+    private void uploadTokenIfNotAlreadyRegistered() {
+            FirebaseMessaging.getInstance()
+                    .getToken().addOnSuccessListener(new OnSuccessListener<String>() {
+                @Override
+                public void onSuccess(String s) {
+                    token = s;
+                    Log.d("The token is ", s);
+                    StringRequest stringRequest = new StringRequest(Request.Method.POST, "https://kamorris.com/lab/convoy/convoy.php", new Response.Listener<String>() {
+                        @Override
+                        public void onResponse(String response) {
+                            //   Toast.makeText(GoogleMapActivity.this,"clicked",Toast.LENGTH_SHORT).show();
+                            try {
+                                JSONObject jObject = new JSONObject(response);
+                                Log.d("Status of Update",response.toString());
+
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+
+                        }
+                    }, new Response.ErrorListener() {
+                        @Override
+                        public void onErrorResponse(VolleyError error) {
+                            Log.d("error:", error.toString());
+                        }
+                    }) {
+                        @Override
+                        protected Map<String, String> getParams() throws AuthFailureError {
+                            Map<String, String> convoydata = new HashMap<>();
+                            convoydata.put("action", "UPDATE");
+                            convoydata.put("username", username);
+                            convoydata.put("session_key", sessionkey);
+                            convoydata.put("fcm_token", s);
+
+
+                            return convoydata;
+                        }
+                    };
+                    queue.add(stringRequest);
+                }
+
+            });
+
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_google_map);
         convoytextview = findViewById(R.id.convoytextview);
+        fcm FCM = new fcm();
+
 
 
         Bundle b = new Bundle();
@@ -82,6 +147,7 @@ public class GoogleMapActivity extends MainActivity {
         username = b.getString("username");
         sessionkey = b.getString("sessionkey");
         Log.d("thee key is ", sessionkey);
+        uploadTokenIfNotAlreadyRegistered();
         smf = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.google_map);
         client = LocationServices.getFusedLocationProviderClient(this);
         joinbutton = findViewById(R.id.joinbutton);
@@ -91,6 +157,8 @@ public class GoogleMapActivity extends MainActivity {
             @Override
             public void onClick(View view) {
                 joinconvoy();
+                getCurrentlocation();
+
             }
         });
         leavebutton.setOnClickListener(new View.OnClickListener() {
@@ -116,6 +184,7 @@ public class GoogleMapActivity extends MainActivity {
                 Log.d("123123", createbutton.getText().toString());
                 if (createbutton.getText().toString().equals("Create Convoy")) {
                     startconvoy();
+                    getCurrentlocation();
 
                 } else {
                     endconvoy();
@@ -125,7 +194,6 @@ public class GoogleMapActivity extends MainActivity {
         });
 
 
-        getCurrentlocation();
 
 
     }
@@ -204,7 +272,7 @@ public class GoogleMapActivity extends MainActivity {
                 JSONObject jObject = new JSONObject(response);
                  Log.d("Successfully join ", response.toString());
                 if (jObject.getString("status").equals("SUCCESS")) {
-                    FirebaseMessaging.getInstance().subscribeToTopic(convoyid);
+                   // FirebaseMessaging.getInstance().subscribeToTopic(convoyid);
 
 
                 } else {
@@ -391,6 +459,8 @@ public class GoogleMapActivity extends MainActivity {
                         if (location != null) {
                             LatLng latlng = new LatLng(location.getLatitude(), location.getLongitude());
                             Log.d("latlng", latlng.toString());
+                            updatelocation(latlng);
+
 
                             MarkerOptions options = new MarkerOptions().position(latlng).title("I am here");
 
@@ -399,6 +469,7 @@ public class GoogleMapActivity extends MainActivity {
                                 public void onMapReady(@NonNull GoogleMap googleMap) {
                                     googleMap.clear();
                                     googleMap.addMarker(options);
+                                    updatelocation(latlng);
                                 }
                             });
                                                   }
@@ -417,7 +488,6 @@ public class GoogleMapActivity extends MainActivity {
                             public void onMapReady(@NonNull GoogleMap googleMap) {
                                 LatLng latlng = new LatLng(location.getLatitude(), location.getLongitude());
                                 Log.d("latlng", latlng.toString());
-                                updatelocation(latlng);
                                 MarkerOptions options = new MarkerOptions().position(latlng).title("I am here");
                                 googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latlng, 17));
                                 Log.d("I", "I am invoked");
@@ -476,7 +546,7 @@ public class GoogleMapActivity extends MainActivity {
                 //   Toast.makeText(GoogleMapActivity.this,"clicked",Toast.LENGTH_SHORT).show();
                 try {
                     JSONObject jObject = new JSONObject(response);
-                    Log.d("Creation Status is ", response.toString());
+                    Log.d("Updating", response.toString());
                     if (jObject.getString("status").equals("SUCCESS")) {
                         Log.d("Status of update = ",jObject.getString("status"));
 
