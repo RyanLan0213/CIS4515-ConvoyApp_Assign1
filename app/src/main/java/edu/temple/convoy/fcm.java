@@ -2,7 +2,9 @@ package edu.temple.convoy;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -17,13 +19,22 @@ import com.android.volley.toolbox.Volley;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.Serializable;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 public class fcm extends FirebaseMessagingService implements GoogleMapActivity.datareturn {
+
+    static List<Vehicle> VehicleList = new ArrayList<>();
+
     public fcm() {
 
     }
@@ -34,27 +45,69 @@ public class fcm extends FirebaseMessagingService implements GoogleMapActivity.d
     public void onCreate() {
         super.onCreate();
         Log.d("I have been created","THE FCM");
-        broadcaster = LocalBroadcastManager.getInstance(this);
 
     }
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
 
-        Log.d("FCMInvolke", "involked");
-     /*   Intent intent = new Intent("MyData");
-        intent.putExtra("username", remoteMessage.getData().get("username"));
-        intent.putExtra("latitude", remoteMessage.getData().get("latitude"));
-        intent.putExtra("longitude", remoteMessage.getData().get("longitude"));
-        broadcaster.sendBroadcast(intent);
+        String rawPayload = remoteMessage.getData().get("payload");
+        if (rawPayload == null || rawPayload.equals("")) {
+            Log.e("Received FCM MESSAGE WO Payload", "Received new FCM message but payload was empty.");
+            return;
+        }
 
-      */
+        try {
+            Log.i("Receive payload and meesage", "Received new FCM message with payload: " + rawPayload);
+            JSONObject parsedPayload = new JSONObject(rawPayload);
+            JSONArray dataArray = parsedPayload.getJSONArray("data");
+
+            // data = JSON array with format:
+            // {"username":"sarah5",
+            //      "firstname":"Sarah",
+            //      "lastname":"Lehman",
+            //      "latitude":"40.036",
+            //      "longitude":"-75.2203"}
+
+            // parse out list of locations for fellow convoy travelers
+            for (int i = 0; i < dataArray.length(); i++) {
+                JSONObject dataObject = dataArray.getJSONObject(i);
+                if (!dataObject.getString("username")
+                        .equals(getusername())) {
+                    // only forward locations for those travelers that AREN'T me
+                    Vehicle Vehicle = new Vehicle(
+                            dataObject.getString("username"),
+                            dataObject.getString("firstname"),
+                            dataObject.getString("lastname"),
+                            dataObject.getDouble("latitude"),
+                            dataObject.getDouble("longitude")
+                    );
+                    Log.d("Line:",Vehicle.toString());
+                    VehicleList.add(Vehicle);
+
+                }
+            }
+
+            Intent intent = new Intent();
+            intent.setAction("edu.temple.convoy.broadcast.location_update");
+            intent.putExtra("convoy_locations", (Serializable) VehicleList);
+            sendBroadcast(intent);
+        } catch (JSONException e) {
+            Log.e("Error" ,"Something went wrong while parsing the JSON payload: "
+                    + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void onNewToken(@NonNull String s) {
         super.onNewToken(s);
-        StringRequest stringRequest = new StringRequest(Request.Method.POST, "https://kamorris.com/lab/convoy/convoy.php", new Response.Listener<String>() {
+        SharedPreferences sharedPreferences = getSharedPreferences("MySharedPref",MODE_PRIVATE);
+        SharedPreferences.Editor myEdit = sharedPreferences.edit();
+        myEdit.putString("Token", s);
+        myEdit.commit();
+
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, "https://kamorris.com/lab/convoy/account.php", new Response.Listener<String>() {
             @Override
             public void onResponse(String response) {
                 //   Toast.makeText(GoogleMapActivity.this,"clicked",Toast.LENGTH_SHORT).show();
@@ -94,5 +147,12 @@ public class fcm extends FirebaseMessagingService implements GoogleMapActivity.d
 
 
     }
+
+    public interface getList{
+        default List getlist() {
+            return VehicleList;
+        }
+    }
+
 }
 

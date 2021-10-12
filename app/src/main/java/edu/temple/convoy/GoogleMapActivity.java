@@ -4,17 +4,21 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.FragmentActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -52,14 +56,18 @@ import com.google.firebase.messaging.RemoteMessage;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
-public class GoogleMapActivity extends MainActivity {
+public class GoogleMapActivity extends MainActivity implements OnMapReadyCallback{
     SupportMapFragment smf;
     FusedLocationProviderClient client;
-    Button logoutbutton, createbutton, joinbutton, leavebutton,confirmbutton;
+    Button logoutbutton, createbutton, joinbutton, leavebutton, confirmbutton;
     public String CONVOYURL = "https://kamorris.com/lab/convoy/convoy.php";
+    public String accountURL = "https://kamorris.com/lab/convoy/account.php";
     public static String username;
     public static String token;
     static String sessionkey;
@@ -72,8 +80,21 @@ public class GoogleMapActivity extends MainActivity {
     private AlertDialog.Builder dialogbuilder;
     private AlertDialog alertDialog;
     private EditText convoyidedit;
+    SharedPreferences preferences;
+    private BroadcastReceiver locationReceiver;
+    private List<Marker> fellowTravelerMarkers;
+    GoogleMap mMap;
+    List<Vehicle> Vehicle = new ArrayList<>();
 
-public interface datareturn{
+    @Override
+    public void onMapReady(@NonNull GoogleMap googleMap) {
+
+    }
+
+
+
+
+    public interface datareturn{
      default String getusername(){
         return username;
     }
@@ -88,58 +109,19 @@ public interface datareturn{
      }
 
 }
-    private void uploadTokenIfNotAlreadyRegistered() {
-            FirebaseMessaging.getInstance()
-                    .getToken().addOnSuccessListener(new OnSuccessListener<String>() {
-                @Override
-                public void onSuccess(String s) {
-                    token = s;
-                    Log.d("The token is ", s);
-                    StringRequest stringRequest = new StringRequest(Request.Method.POST, "https://kamorris.com/lab/convoy/convoy.php", new Response.Listener<String>() {
-                        @Override
-                        public void onResponse(String response) {
-                            //   Toast.makeText(GoogleMapActivity.this,"clicked",Toast.LENGTH_SHORT).show();
-                            try {
-                                JSONObject jObject = new JSONObject(response);
-                                Log.d("Status of Update",response.toString());
 
-                            } catch (JSONException e) {
-                                e.printStackTrace();
-                            }
-
-                        }
-                    }, new Response.ErrorListener() {
-                        @Override
-                        public void onErrorResponse(VolleyError error) {
-                            Log.d("error:", error.toString());
-                        }
-                    }) {
-                        @Override
-                        protected Map<String, String> getParams() throws AuthFailureError {
-                            Map<String, String> convoydata = new HashMap<>();
-                            convoydata.put("action", "UPDATE");
-                            convoydata.put("username", username);
-                            convoydata.put("session_key", sessionkey);
-                            convoydata.put("fcm_token", s);
-
-
-                            return convoydata;
-                        }
-                    };
-                    queue.add(stringRequest);
-                }
-
-            });
-
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_google_map);
         convoytextview = findViewById(R.id.convoytextview);
-        fcm FCM = new fcm();
 
+
+        preferences = getSharedPreferences("MySharedPref",MODE_PRIVATE);
+
+        String tokenname = preferences.getString("Token","");
+        Log.d("The tokenname is ",tokenname);
 
 
         Bundle b = new Bundle();
@@ -196,6 +178,55 @@ public interface datareturn{
 
 
 
+    }
+
+    private void uploadTokenIfNotAlreadyRegistered() {
+         SharedPreferences.Editor myEdit = preferences.edit();
+         SharedPreferences sh = getSharedPreferences("MySharedPref", MODE_PRIVATE);
+         if (sh.getString("Token", "") != null) {
+             String tokenInSharedPref = sh.getString("Token", "");
+            Log.d("Preference got the token and it is: ",tokenInSharedPref);
+            Volley.newRequestQueue(GoogleMapActivity.this).add(new StringRequest(Request.Method.POST, accountURL, response -> {
+                // If success, use SharedPreferences to guard against multiple attempts to register with the server
+            }, Throwable::printStackTrace) {
+                @Override
+                protected Map<String, String> getParams() throws AuthFailureError {
+                    Map<String, String> map = new HashMap<>();
+                    map.put("action", "UPDATE");
+                    map.put("username", username);
+                    map.put("session_key", sessionkey);
+                    map.put("fcm_token", preferences.getString("Token", "")); // s is your token
+                    return map;
+                }
+            });
+
+
+             } else {
+        Log.d("Preference does not get the token","Preference does not get the token");
+        FirebaseMessaging.getInstance()
+                .getToken().addOnSuccessListener(new OnSuccessListener<String>() {
+            @Override
+            public void onSuccess(String s) {
+                 myEdit.putString("Token",s);
+                 myEdit.commit();
+                Volley.newRequestQueue(GoogleMapActivity.this).add(new StringRequest(Request.Method.POST, accountURL, response -> {
+                    // If success, use SharedPreferences to guard against multiple attempts to register with the server
+                }, Throwable::printStackTrace) {
+                    @Override
+                    protected Map<String, String> getParams() throws AuthFailureError {
+                        Map<String, String> map = new HashMap<>();
+                        map.put("action", "UPDATE");
+                        map.put("username", username);
+                        map.put("session_key", sessionkey);
+                        map.put("fcm_token", s); // s is your token
+                        return map;
+                    }
+                });
+            }
+        });
+
+
+         }
     }
     private void leaveconvoy(){
         StringRequest stringRequest = new StringRequest(Request.Method.POST, CONVOYURL, new Response.Listener<String>() {
@@ -467,8 +498,29 @@ public interface datareturn{
                             smf.getMapAsync(new OnMapReadyCallback() {
                                 @Override
                                 public void onMapReady(@NonNull GoogleMap googleMap) {
+                                    locationReceiver = new BroadcastReceiver() {
+                                        @Override
+                                        public void onReceive(Context context, Intent intent) {
+                                            if (intent.hasExtra("convoy_locations") ){
+                                                List<Vehicle> vehicleList = (List<Vehicle>) intent
+                                                        .getSerializableExtra("convoy_locations");
+                                                googleMap.clear();
+                                                for(Vehicle vehicle:vehicleList){
+                                                    Log.d("Printing the information",vehicle.toString());
+                                                    googleMap.addMarker(options);
+                                                    Marker newMarker = googleMap.addMarker(new MarkerOptions()
+                                                            .position(vehicle.getLocation())
+                                                            .title(vehicle.getUsername()));
+                                                    fellowTravelerMarkers.add(newMarker);
+
+                                                }
+
+                                            }
+                                        }
+                                    };
                                     googleMap.clear();
                                     googleMap.addMarker(options);
+
                                     updatelocation(latlng);
                                 }
                             });
