@@ -71,7 +71,7 @@ public class GoogleMapActivity extends MainActivity implements OnMapReadyCallbac
     public static String username;
     public static String token;
     static String sessionkey;
-    String convoyid = "";
+    static String convoyid = "";
     String status;
     TextView convoytextview;
     public String logoutURL = "https://kamorris.com/lab/convoy/account.php";
@@ -83,6 +83,7 @@ public class GoogleMapActivity extends MainActivity implements OnMapReadyCallbac
     SharedPreferences preferences;
     private BroadcastReceiver locationReceiver;
     private List<Marker> fellowTravelerMarkers;
+    Button recordbutton;
     GoogleMap mMap;
     List<Vehicle> Vehicle = new ArrayList<>();
 
@@ -95,6 +96,9 @@ public class GoogleMapActivity extends MainActivity implements OnMapReadyCallbac
 
 
     public interface datareturn{
+        default String getconvoyid(){
+            return convoyid;
+        }
      default String getusername(){
         return username;
     }
@@ -134,6 +138,7 @@ public class GoogleMapActivity extends MainActivity implements OnMapReadyCallbac
         client = LocationServices.getFusedLocationProviderClient(this);
         joinbutton = findViewById(R.id.joinbutton);
         leavebutton = findViewById(R.id.leavebutton);
+        recordbutton= findViewById(R.id.recordbutton);
 
         joinbutton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -149,7 +154,19 @@ public class GoogleMapActivity extends MainActivity implements OnMapReadyCallbac
                 leaveconvoy();
             }
         });
+        recordbutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent recordingActivity = new Intent(GoogleMapActivity.this,RecordingAcitivty.class);
+               // Bundle bundle = new Bundle();
+                //bundle.putString("lastname",jObject.getString("lastname"));
+               // bundle.putString("sessionkey",key);
+               // bundle.putString("username",usernamestring);
+              //  mapactivity.putExtras(bundle);
 
+                startActivity(recordingActivity);
+            }
+        });
         logoutbutton = findViewById(R.id.logoutbutton);
         logoutbutton.setOnClickListener(new View.OnClickListener() {
             @Override
